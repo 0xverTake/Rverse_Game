@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reverse Engineering Challenge</title>
+    <style>
+        :root {
+            --primary-color: #00ff00;
+            --bg-color: #1a1a1a;
+            --terminal-bg: #000000;
+            --border-color: #00ff00;
+            --hover-color: #004400;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 10px;
+            position: relative;
+        }
+
+        #canvas-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .language-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 2;
+        }
+
+        .language-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            padding: 5px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .language-btn.active {
+            background: var(--primary-color);
+            color: var(--terminal-bg);
+        }
+
+        .language-btn:hover {
+            background: var(--hover-color);
+        }
+
+        .container {
+            width: 95%;
+            max-width: 900px;
+            margin: 20px auto;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary-color);
+            font-size: clamp(1.5rem, 4vw, 2rem);
+        }
+
+        .terminal {
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            margin: 15px 0;
+            height: clamp(200px, 40vh, 400px);
+            overflow-y: auto;
+            white-space: pre-wrap;
+            position: relative;
+            font-size: clamp(12px, 2vw, 14px);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        input {
+            flex: 1;
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--primary-color);
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: clamp(12px, 2vw, 16px);
+            border-radius: 5px;
+            min-width: 0;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: var(--primary-color);
+            border: 1px solid var(--border-color);
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            font-size: clamp(12px, 2vw, 14px);
+            border-radius: 5px;
+            min-width: clamp(100px, 20vw, 120px);
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background-color: var(--hover-color);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        #source-code {
+            display: none;
+        }
+
+        .success {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #ff0000;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        /* Mobile Responsive Styles */
+        @media (max-width: 600px) {
+            body {
+                padding: 5px;
+            }
+
+            .container {
+                padding: 15px;
+                margin: 10px auto;
+            }
+
+            .language-selector {
+                top: 10px;
+                right: 10px;
+            }
+
+            .button-group {
+                gap: 5px;
+            }
+
+            button {
+                padding: 6px 12px;
+                font-size: 12px;
+                min-width: 90px;
+            }
+
+            .terminal {
+                padding: 10px;
+                font-size: 12px;
+                height: clamp(150px, 35vh, 300px);
+            }
+
+            input {
+                padding: 6px;
+                font-size: 12px;
+            }
+        }
+
+        /* Landscape Mode */
+        @media (max-height: 600px) and (orientation: landscape) {
+            .container {
+                margin: 5px auto;
+            }
+
+            .terminal {
+                height: clamp(120px, 30vh, 200px);
+            }
+
+            h1 {
+                margin-bottom: 10px;
+                font-size: 1.2rem;
+            }
+
+            .button-group {
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas-background"></canvas>
+
+    <div class="language-selector">
+        <button class="language-btn active" onclick="changeLanguage('en')">EN</button>
+        <button class="language-btn" onclick="changeLanguage('fr')">FR</button>
+    </div>
+
+    <div class="container">
+        <h1 id="title">Reverse Engineering Challenge</h1>
+        
+        <div class="terminal" id="output"></div>
+        
+        <div class="input-group">
+            <input type="text" id="input" autocomplete="off">
+            <button onclick="submitPassword()" id="submitBtn">Submit</button>
+        </div>
+
+        <div class="button-group">
+            <button onclick="toggleSource()" id="viewSourceBtn">View Source</button>
+            <button onclick="getHint()" id="hintBtn">Get Hint</button>
+            <button onclick="askClaude()" id="claudeBtn">Ask Claude</button>
+        </div>
+        
+        <div id="source-code" class="terminal">
+// Encryption key (hidden in plain sight)
+const KEY = "R3V3RS3";
+
+// Encryption function
+function encrypt(input) {
+    let output = "";
+    for(let i = 0; i < input.length; i++) {
+        output += String.fromCharCode(input.charCodeAt(i) ^ KEY.charCodeAt(i % KEY.length));
+    }
+    return output;
+}
+
+// Debug function (intentionally left for analysis)
+function _dbg_generate_password(pass) {
+    const encrypted = encrypt(pass);
+    let bytes = "";
+    for(let i = 0; i < encrypted.length; i++) {
+        bytes += "0x" + encrypted.charCodeAt(i).toString(16).padStart(2, '0') + ", ";
+    }
+    console.log("Encrypted bytes:", bytes);
+}
+
+// Level 1 password (encrypted)
+const ENCRYPTED_PASSWORD = String.fromCharCode(0x35, 0x1E, 0x17, 0x1A, 0x12, 0x1F);
+// Hint: The password is 6 characters long
+// _dbg_generate_password("LEVEL1");</div>
+    </div>
+
+    <script>
+        // Canvas background animation
+        const canvas = document.getElementById('canvas-background');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        let dpr = window.devicePixelRatio || 1;
+
+        // Handle high DPI displays
+        function setupCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(dpr, dpr);
+        }
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            setupCanvas();
+        });
+
+        setupCanvas();
+
+        class Point {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 1.5;
+                this.vy = (Math.random() - 0.5) * 1.5;
+                this.radius = 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#00ff00';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // Adjust number of points based on screen size
+        const pointCount = Math.min(Math.floor((width * height) / 20000), 50);
+        const points = Array(pointCount).fill().map(() => new Point());
+        const maxDistance = Math.min(width, height) * 0.2;
+
+        function drawLines(point, points) {
+            points.forEach(p2 => {
+                const distance = Math.sqrt(
+                    Math.pow(point.x - p2.x, 2) + Math.pow(point.y - p2.y, 2)
+                );
+                if (distance < maxDistance) {
+                    ctx.beginPath();
+                    ctx.moveTo(point.x, point.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    const opacity = 1 - (distance / maxDistance);
+                    ctx.strokeStyle = `rgba(0, 255, 0, ${opacity * 0.3})`;
+                    ctx.lineWidth = opacity;
+                    ctx.stroke();
+                    ctx.closePath();
+                }
+            });
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(26, 26, 26, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+
+            points.forEach(point => {
+                point.update();
+                point.draw();
+                drawLines(point, points);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Game logic
+        const KEY = "R3V3RS3";
+        const ENCRYPTED_PASSWORD = String.fromCharCode(0x35, 0x1E, 0x17, 0x1A, 0x12, 0x1F);
+        let attempts = 0;
+        const MAX_ATTEMPTS = 5;
+        let currentLang = 'en';
+
+        const translations = {
+            en: {
+                title: "Reverse Engineering Challenge",
+                welcome: "Welcome to the Reverse Engineering Challenge!\nLevel 1: Password Cracking\n\nYour goal is to find the correct password by analyzing the source code.\nUse the \"View Source\" button to examine the encryption logic.\nType 'hint' for a hint or 'quit' to exit.\n\nTry to understand how the encryption works and crack the password!",
+                submit: "Submit",
+                viewSource: "View Source",
+                getHint: "Get Hint",
+                askClaude: "Ask Claude",
+                enterPassword: "Enter password...",
+                incorrect: "[ERROR] Incorrect password. %attempts% attempts remaining.",
+                maxAttempts: "[ERROR] Maximum attempts reached. Game Over.",
+                success: "[SUCCESS] Congratulations! You've successfully reversed the password!\nYou can now analyze how the encryption works.",
+                hints: [
+                    "The password is encrypted using XOR operation",
+                    "XOR has a special property: A ^ B ^ B = A",
+                    "Look at the encryption key and how it's used",
+                    "The debug function shows how passwords are encrypted",
+                    "Try to understand the pattern in the encrypted bytes"
+                ],
+                claudeHelp: "[CLAUDE] Here are some reverse engineering concepts that might help:\n1. XOR encryption is reversible using the same key\n2. The encryption key is visible in the source code\n3. You can use the debug function to understand the encryption\n4. Try analyzing the pattern of encrypted bytes\n5. The password length matches the encrypted bytes length"
+            },
+            fr: {
+                title: "Défi de Rétro-Ingénierie",
+                welcome: "Bienvenue dans le Défi de Rétro-Ingénierie !\nNiveau 1 : Craquage de Mot de Passe\n\nVotre objectif est de trouver le mot de passe correct en analysant le code source.\nUtilisez le bouton \"Voir Source\" pour examiner la logique de cryptage.\nTapez 'hint' pour un indice ou 'quit' pour quitter.\n\nEssayez de comprendre comment fonctionne le cryptage et craquez le mot de passe !",
+                submit: "Valider",
+                viewSource: "Voir Source",
+                getHint: "Indice",
+                askClaude: "Aide Claude",
+                enterPassword: "Entrez le mot de passe...",
+                incorrect: "[ERREUR] Mot de passe incorrect. %attempts% tentatives restantes.",
+                maxAttempts: "[ERREUR] Nombre maximum de tentatives atteint. Partie terminée.",
+                success: "[SUCCÈS] Félicitations ! Vous avez réussi à décrypter le mot de passe !\nVous pouvez maintenant analyser comment fonctionne le cryptage.",
+                hints: [
+                    "Le mot de passe est crypté en utilisant l'opération XOR",
+                    "XOR a une propriété spéciale : A ^ B ^ B = A",
+                    "Regardez la clé de cryptage et comment elle est utilisée",
+                    "La fonction de débogage montre comment les mots de passe sont cryptés",
+                    "Essayez de comprendre le motif dans les octets cryptés"
+                ],
+                claudeHelp: "[CLAUDE] Voici quelques concepts de rétro-ingénierie qui pourraient vous aider :\n1. Le cryptage XOR est réversible en utilisant la même clé\n2. La clé de cryptage est visible dans le code source\n3. Vous pouvez utiliser la fonction de débogage pour comprendre le cryptage\n4. Essayez d'analyser le motif des octets cryptés\n5. La longueur du mot de passe correspond à la longueur des octets cryptés"
+            }
+        };
+
+        function encrypt(input) {
+            let output = "";
+            for(let i = 0; i < input.length; i++) {
+                output += String.fromCharCode(input.charCodeAt(i) ^ KEY.charCodeAt(i % KEY.length));
+            }
+            return output;
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.language-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.textContent.toLowerCase() === lang) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // Update UI text
+            document.getElementById('title').textContent = translations[lang].title;
+            document.getElementById('input').placeholder = translations[lang].enterPassword;
+            document.getElementById('submitBtn').textContent = translations[lang].submit;
+            document.getElementById('viewSourceBtn').textContent = translations[lang].viewSource;
+            document.getElementById('hintBtn').textContent = translations[lang].getHint;
+            document.getElementById('claudeBtn').textContent = translations[lang].askClaude;
+
+            // Reset output with welcome message in new language
+            document.getElementById('output').innerHTML = translations[lang].welcome;
+        }
+
+        function submitPassword() {
+            const input = document.getElementById('input').value.toUpperCase();
+            const output = document.getElementById('output');
+            
+            if(input.toLowerCase() === 'quit') {
+                output.innerHTML += "\nExiting...\n";
+                return;
+            }
+
+            if(input.toLowerCase() === 'hint') {
+                getHint();
+                return;
+            }
+
+            attempts++;
+            
+            if(encrypt(input) === ENCRYPTED_PASSWORD) {
+                output.innerHTML += "\n" + translations[currentLang].success + "\n";
+                document.getElementById('input').disabled = true;
+                return;
+            }
+
+            if(attempts >= MAX_ATTEMPTS) {
+                output.innerHTML += "\n" + translations[currentLang].maxAttempts + "\n";
+                document.getElementById('input').disabled = true;
+                return;
+            }
+
+            output.innerHTML += "\n" + translations[currentLang].incorrect.replace('%attempts%', MAX_ATTEMPTS - attempts) + "\n";
+        }
+
+        function toggleSource() {
+            const sourceCode = document.getElementById('source-code');
+            sourceCode.style.display = sourceCode.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function getHint() {
+            const hints = translations[currentLang].hints;
+            const output = document.getElementById('output');
+            output.innerHTML += "\n[HINT] " + hints[Math.floor(Math.random() * hints.length)] + "\n";
+        }
+
+        function askClaude() {
+            const output = document.getElementById('output');
+            output.innerHTML += "\n" + translations[currentLang].claudeHelp + "\n";
+        }
+
+        document.getElementById('input').addEventListener('keypress', function(e) {
+            if(e.key === 'Enter') {
+                submitPassword();
+            }
+        });
+
+        // Initialize with English
+        changeLanguage('en');
+    </script>
+</body>
+</html>
